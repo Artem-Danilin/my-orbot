@@ -89,7 +89,7 @@ class OrbotActivity : BaseActivity() {
         // ====================================================================
         Thread {
             try {
-                val url = java.net.URL("https://githubusercontent.com")
+                val url = java.net.URL("https://raw.githubusercontent.com/scriptzteam/Tor-Bridges-Collector-v2/refs/heads/main/bridges/vanilla_tested.txt")
                 val connection = url.openConnection() as java.net.HttpURLConnection
                 connection.requestMethod = "GET"
                 connection.connectTimeout = 5000
@@ -122,7 +122,7 @@ class OrbotActivity : BaseActivity() {
         java.util.Timer().scheduleAtFixedRate(object : java.util.TimerTask() {
             override fun run() {
                 try {
-                    val url = java.net.URL("https://githubusercontent.com")
+                    val url = java.net.URL("https://raw.githubusercontent.com/scriptzteam/Tor-Bridges-Collector-v2/refs/heads/main/bridges/vanilla_tested.txt")
                     val text = url.readText()
                     if (text.isNotBlank()) {
                         val clean = text.lines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }.joinToString("\n")
