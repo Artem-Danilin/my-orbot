@@ -71,8 +71,8 @@ class OrbotActivity : BaseActivity() {
         // programmatically set title to "Orbot" since camo mode will overwrite it here from manifest
         title = getString(R.string.app_name)
         savedInstanceState?.let {
-            portSocks = it.getInt(BUNDLE_KEY_SOCKS, -1)
-            portHttp = it.getInt(BUNDLE_KEY_HTTP, -1)
+            portSocks = it.getInt("socks", -1)
+            portHttp = it.getInt("http", -1)
         }
         try {
             createOrbot()
