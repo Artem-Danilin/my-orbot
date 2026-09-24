@@ -10,9 +10,9 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        # Мы убрали привязку к именам веток, теперь робот скачает код без ошибок
+        # Убраны параметры ref и token, теперь Git автоматически скачает нужный код
 
-      # Принудительно скачиваем Си-код напрямую с серверов разработчиков
+      # Скачиваем Си-код напрямую с серверов разработчиков, исправляя symlinks
       - name: Checkout Submodules Manually
         run: |
           git submodule init
