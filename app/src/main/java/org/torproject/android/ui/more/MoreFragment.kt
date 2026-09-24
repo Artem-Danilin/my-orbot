@@ -24,8 +24,8 @@ import org.torproject.android.util.sendIntentToService
 import org.torproject.jni.TorService
 
 class MoreFragment : Fragment() {
-    private var httpPort = OrbotActivity.PORT_NOT_SET_VALUE
-    private var socksPort = OrbotActivity.PORT_NOT_SET_VALUE
+    private var httpPort = -1
+    private var socksPort = -1
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
