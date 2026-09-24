@@ -12,8 +12,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main # Явно указываем роботу брать код из вашей ветки main
 
-      # Принудительно инициализируем и скачиваем Си-код напрямую с серверов разработчиков, обходя ограничения Windows
+      # Принудительно скачиваем Си-код напрямую с серверов разработчиков
       - name: Checkout Submodules Manually
         run: |
           git submodule init
