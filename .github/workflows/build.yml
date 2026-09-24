@@ -10,9 +10,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        # Убраны параметры ref и token, теперь Git автоматически скачает нужный код
 
-      # Скачиваем Си-код напрямую с серверов разработчиков, исправляя symlinks
+      # Инициализируем Си-библиотеки туннеля напрямую
       - name: Checkout Submodules Manually
         run: |
           git submodule init
@@ -24,9 +23,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Android NDK
-        uses: android-actions/setup-android@v3
-
+      # Запускаем сборку через встроенный компилятор сервера
       - name: Build APK
         run: |
           chmod +x gradlew
