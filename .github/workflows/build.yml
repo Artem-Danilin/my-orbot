@@ -10,9 +10,7 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          ref: main # Явно указываем роботу брать код из вашей ветки main
+        # Мы убрали привязку к именам веток, теперь робот скачает код без ошибок
 
       # Принудительно скачиваем Си-код напрямую с серверов разработчиков
       - name: Checkout Submodules Manually
