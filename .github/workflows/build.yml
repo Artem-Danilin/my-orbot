@@ -11,6 +11,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # Удаляем мешающий скрипт, который вызывает сбой компилятора Kotlin
+      - name: Remove stray script file
+        run: |
+          rm -f app/src/main/java/org/torproject/android/service/BridgeDownloader.main.kts
+          rm -f app/src/main/java/org/torproject/android/BridgeDownloader.main.kts
+
       # Инициализируем Си-библиотеки туннеля напрямую
       - name: Checkout Submodules Manually
         run: |
