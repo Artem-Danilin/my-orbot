@@ -1,17 +1,23 @@
 name: Build Custom Orbot
 
 on:
-  workflow_dispatch: # Позволяет запускать сборку одной кнопкой вручную
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Собираем на Linux, где нет ошибок Windows NDK
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          submodules: 'recursive' # Корректно выкачиваем Си-туннели
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Принудительно инициализируем и скачиваем Си-код напрямую с серверов разработчиков, обходя ограничения Windows
+      - name: Checkout Submodules Manually
+        run: |
+          git submodule init
+          git submodule update --init --recursive --force
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
