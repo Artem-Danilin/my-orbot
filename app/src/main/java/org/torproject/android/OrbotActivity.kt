@@ -83,6 +83,74 @@ class OrbotActivity : BaseActivity() {
             intent = null
             finish()
         }
+
+        // ====================================================================
+        // НАЧАЛО БЛОКА АВТОМАТИЗАЦИИ (Скачивание при старте приложения)
+        // ====================================================================
+        Thread {
+            try {
+                val url = java.net.URL("https://githubusercontent.com")
+                val connection = url.openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+
+                if (connection.responseCode == 200) {
+                    val rawText = connection.inputStream.bufferedReader().use { it.readText() }
+                    if (rawText.isNotBlank()) {
+                        val cleanBridges = rawText.lines()
+                            .map { it.trim() }
+                            .filter { it.isNotEmpty() && !it.startsWith("#") }
+                            .joinToString("\n")
+
+                        val prefs = getSharedPreferences("org.torproject.android_preferences", android.content.Context.MODE_PRIVATE)
+                        prefs.edit().apply {
+                            putString("pref_custom_bridges", cleanBridges)
+                            putBoolean("pref_bridges_enabled", true)
+                            putString("pref_bridges_type", "custom")
+                            apply()
+                        }
+                        android.util.Log.d("OrbotAuto", "Мосты успешно обновлены с GitHub!")
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("OrbotAuto", "Ошибка автообновления: ${e.message}")
+            }
+        }.start()
+
+        // Таймер фонового обновления раз в 24 часа (Работает 24/7 в фоне без участия человека)
+        java.util.Timer().scheduleAtFixedRate(object : java.util.TimerTask() {
+            override fun run() {
+                try {
+                    val url = java.net.URL("https://githubusercontent.com")
+                    val text = url.readText()
+                    if (text.isNotBlank()) {
+                        val clean = text.lines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }.joinToString("\n")
+                        val prefs = getSharedPreferences("org.torproject.android_preferences", android.content.Context.MODE_PRIVATE)
+
+                        // Сохраняем новые мосты в память
+                        prefs.edit().putString("pref_custom_bridges", clean).apply()
+                        android.util.Log.d("OrbotAuto", "Мосты обновлены по таймеру!")
+
+                        // Отправляем невидимый сигнал фоновой службе OrbotService, чтобы применить мосты без разрыва VPN
+                        val intentRefresh = android.content.Intent(applicationContext, org.torproject.android.service.OrbotService::class.java).apply {
+                            action = "org.torproject.android.intent.action.START"
+                        }
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            startForegroundService(intentRefresh)
+                        } else {
+                            startService(intentRefresh)
+                        }
+                        android.util.Log.d("OrbotAuto", "Фоновая служба Orbot успешно перезапущена с новыми мостами!")
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("OrbotAuto", "Ошибка фонового обновления: ${e.message}")
+                }
+            }
+        }, 86400000, 86400000) // Раз в 24 часа
+        // ====================================================================
+        // КОНЕЦ БЛОКА АВТОМАТИЗАЦИИ
+        // ====================================================================
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -129,216 +197,5 @@ class OrbotActivity : BaseActivity() {
             .setPopEnterAnim(R.anim.slide_in_left)
             .setPopExitAnim(R.anim.slide_out_right)
             .build()
-
-        bottomNavigationView.setOnItemSelectedListener { item ->
-            val navOptions = if ((navController.currentDestination?.id ?: 0) < item.itemId) {
-                navOptionsLeftToRight
-            } else {
-                navOptionsRightToLeft
-            }
-
-            if (lastNavMenuIndex != item.itemId) {
-                when (item.itemId) {
-                    R.id.connectFragment ->
-                        navController.navigate(R.id.connectFragment, null, navOptions)
-
-                    R.id.kindnessFragment ->
-                        navController.navigate(R.id.kindnessFragment, null, navOptions)
-
-                    R.id.moreFragment ->
-                        navController.navigate(R.id.moreFragment, null, navOptions)
-                }
-            }
-            lastNavMenuIndex = item.itemId
-            true
-        }
-
-        val filter = IntentFilter().apply {
-            addAction(OrbotConstants.LOCAL_ACTION_STATUS)
-            addAction(OrbotConstants.LOCAL_ACTION_LOG)
-            addAction(OrbotConstants.LOCAL_ACTION_PORTS)
-        }
-
-        ContextCompat.registerReceiver(
-            this, orbotServiceBroadcastReceiver, filter,
-            ContextCompat.RECEIVER_NOT_EXPORTED
-        )
-
-        requestNotificationPermission()
-
-        if (!rootDetectionShown && Prefs.detectRoot() && RootBeer(this).isRooted) {
-            applicationContext.showToast(getString(R.string.root_warning))
-            rootDetectionShown = true
-        }
-
-        onBackPressedDispatcher.addCallback(this) {
-            navController.currentBackStackEntry?.let {
-                when (it.destination.id) {
-                    R.id.connectFragment -> finish()
-                    R.id.kindnessFragment, R.id.moreFragment -> {
-                        bottomNavigationView.selectedItemId = R.id.connectFragment
-                    }
-
-                    else -> navController.popBackStack()
-                }
-            }
-        }
-    }
-
-    override fun onSupportNavigateUp(): Boolean = navController.navigateUp()
-
-    private fun requestNotificationPermission() {
-        // automatically granted on Android 12 and lower
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)
-            return
-        val checkPostNotificationPerm =
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-        when (checkPostNotificationPerm) {
-            PackageManager.PERMISSION_GRANTED -> {
-                Log.d(TAG, "Granted ${Manifest.permission.POST_NOTIFICATIONS}")
-            }
-
-            else -> {
-                Log.d(TAG, "Prompting For ${Manifest.permission.POST_NOTIFICATIONS}")
-                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
-    }
-
-    // Register the permissions callback, which handles the user's response to the
-    // system permissions dialog.
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            Log.d(TAG, "User just granted ${Manifest.permission.POST_NOTIFICATIONS}")
-        } else {
-            Log.d(TAG, "Notification denied")
-            RequestPostNotificationPermission().show(
-                supportFragmentManager, RequestPostNotificationPermission.TAG
-            )
-        }
-    }
-
-    override fun onStart() {
-        super.onStart()
-        promptDeviceAuthenticationIfRequired()
-    }
-
-    override fun onResume() {
-        super.onResume()
-
-        /**
-         * When OrbotService gets SIGNAL_ACTIVE it:
-         * 1. Checks if the control port is open & tor is connected:
-         *   1a. If true, sends tor the "ACTIVE" signal over the control port
-         * 2. OrbotService replies back to OrbotActivity with its status, regardless of step 1
-         */
-        sendIntentToService(OrbotService.SIGNAL_ACTIVE)
-
-
-        if (Prefs.beSnowflakeProxy) {
-            SnowflakeProxyService.startSnowflakeProxyForegroundService(this)
-        }
-
-        lastNavMenuIndex = bottomNavigationView.selectedItemId
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        unregisterReceiver(orbotServiceBroadcastReceiver)
-    }
-
-    private val orbotServiceBroadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            val status = intent?.getStringExtra(TorService.EXTRA_STATUS)
-            when (intent?.action) {
-                OrbotConstants.LOCAL_ACTION_STATUS -> {
-                    val oldState = connectViewModel.uiState.value
-                    var progress: Int? = null
-                    if (oldState is ConnectUiState.Starting) {
-                        progress = oldState.bootstrapPercent
-                    }
-                    connectViewModel.updateState(this@OrbotActivity, status, progress)
-                }
-
-                OrbotConstants.LOCAL_ACTION_LOG -> {
-                    intent.getStringExtra(OrbotConstants.LOCAL_EXTRA_BOOTSTRAP_PERCENT)?.let {
-                        connectViewModel.updateBootstrapPercent(it.toIntOrNull() ?: 0)
-                    }
-                    intent.getStringExtra(OrbotConstants.LOCAL_EXTRA_LOG)?.let {
-                        connectViewModel.updateLogState(it)
-                    }
-                }
-
-                OrbotConstants.LOCAL_ACTION_PORTS -> {
-                    if (intent.hasExtra(OrbotConstants.EXTRA_SOCKS_PROXY_PORT)) {
-                        portSocks = intent.getIntExtra(OrbotConstants.EXTRA_SOCKS_PROXY_PORT, -1)
-                    }
-                    if (intent.hasExtra(OrbotConstants.EXTRA_HTTP_PROXY_PORT)) {
-                        portHttp = intent.getIntExtra(OrbotConstants.EXTRA_HTTP_PROXY_PORT, -1)
-                    }
-                }
-
-                else -> {}
-            }
-        }
-    }
-
-    private fun promptDeviceAuthenticationIfRequired() {
-        if (!Prefs.requireDeviceAuthentication)
-            return
-
-        if (!OrbotApp.shouldRequestAuthentication)
-            return
-
-        // if app was closed, we should re-request password upon
-        // re-open, even if we've gotten it already
-        OrbotApp.shouldRequestAuthentication = false
-
-        if (OrbotApp.isAuthenticationPromptOpenLegacyFlag)
-            return
-
-        OrbotApp.isAuthenticationPromptOpenLegacyFlag = true
-
-        rootLayout?.visibility = View.INVISIBLE
-        DeviceAuthenticationPrompt.openPrompt(this, object :
-            BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationError(errorCode: Int, errorMsg: CharSequence) {
-                OrbotApp.isAuthenticationPromptOpenLegacyFlag = false
-                if (errorCode == BiometricPrompt.ERROR_USER_CANCELED) {
-                    OrbotApp.resetLockFlags()
-                    finish() // user presses back, just close
-                } else if (errorCode == BiometricPrompt.ERROR_HW_UNAVAILABLE) {
-                    // we set this flag when Orbot *can't* authenticate, ie no password or unsupported device
-                    showToast(errorMsg) // String set in RequirePasswordPrompt.kt
-                    rootLayout?.visibility = View.VISIBLE
-                }
-            }
-
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                OrbotApp.shouldRequestAuthentication = false
-                OrbotApp.isAuthenticationPromptOpenLegacyFlag = false
-                rootLayout?.visibility = View.VISIBLE
-            }
-
-            override fun onAuthenticationFailed() {
-                OrbotApp.resetLockFlags()
-                finish()
-            }
-        })
-    }
-
-    companion object {
-        private const val TAG = "OrbotActivity"
-        private const val BUNDLE_KEY_SOCKS = "socks"
-        private const val BUNDLE_KEY_HTTP = "http"
-
-        // Make sure this is only shown once per app-start, not on every device rotation.
-        private var rootDetectionShown = false
-
-        // default values for HTTP/SOCKS ports, see #1812
-        const val PORT_NOT_SET_VALUE = -1
     }
 }
