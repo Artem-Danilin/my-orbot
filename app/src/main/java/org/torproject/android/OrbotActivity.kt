@@ -156,8 +156,8 @@ class OrbotActivity : BaseActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.apply {
-            putInt(BUNDLE_KEY_SOCKS, portSocks)
-            putInt(BUNDLE_KEY_HTTP, portHttp)
+            putInt("socks", portSocks)
+            putInt("http", portHttp)
         }
     }
 
